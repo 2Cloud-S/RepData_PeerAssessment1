@@ -5,21 +5,101 @@ output:
     keep_md: true
 ---
 
-
 ## Loading and preprocessing the data
 
-
+```{r load-data, echo=TRUE}
+unzip("activity.zip")
+activity <- read.csv("activity.csv")
+activity$date <- as.Date(activity$date)
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r total-steps-per-day}
+library(dplyr)
+daily_steps <- activity %>%
+  group_by(date) %>%
+  summarize(total = sum(steps, na.rm = TRUE))
+```
 
+```{r hist-steps-per-day}
+hist(daily_steps$total, main = "Histogram of Total Steps per Day", col = "skyblue", xlab = "Steps")
+```
+
+```{r mean-median}
+mean_steps <- mean(daily_steps$total)
+median_steps <- median(daily_steps$total)
+mean_steps
+median_steps
+```
 
 ## What is the average daily activity pattern?
 
+```{r interval-average}
+interval_avg <- activity %>%
+  group_by(interval) %>%
+  summarize(mean_steps = mean(steps, na.rm = TRUE))
+```
 
+```{r plot-interval}
+plot(interval_avg$interval, interval_avg$mean_steps, type = "l", col = "blue", 
+     main = "Average Daily Activity Pattern", xlab = "5-minute Interval", ylab = "Average Steps")
+```
+
+```{r max-interval}
+interval_avg[which.max(interval_avg$mean_steps), ]
+```
 
 ## Imputing missing values
 
+```{r count-na}
+sum(is.na(activity$steps))
+```
 
+```{r impute-na}
+activity_imputed <- activity
+for (i in which(is.na(activity_imputed$steps))) {
+  interval_val <- activity_imputed$interval[i]
+  activity_imputed$steps[i] <- interval_avg$mean_steps[interval_avg$interval == interval_val]
+}
+```
+
+### New histogram, mean, median with imputed data
+
+```{r daily-steps-imputed}
+daily_steps_imputed <- activity_imputed %>%
+  group_by(date) %>%
+  summarize(total = sum(steps))
+```
+
+```{r hist-imputed}
+hist(daily_steps_imputed$total, main = "Histogram with Imputed Data", col = "orange", xlab = "Steps")
+```
+
+```{r mean-median-imputed}
+mean_imputed <- mean(daily_steps_imputed$total)
+median_imputed <- median(daily_steps_imputed$total)
+mean_imputed
+median_imputed
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r add-weekday}
+activity_imputed$day <- ifelse(weekdays(activity_imputed$date) %in% c("Saturday", "Sunday"), "weekend", "weekday")
+activity_imputed$day <- factor(activity_imputed$day)
+```
+
+```{r avg-interval-day}
+interval_day_avg <- activity_imputed %>%
+  group_by(interval, day) %>%
+  summarize(mean_steps = mean(steps), .groups = "drop")
+```
+
+```{r plot-weekday-weekend}
+library(lattice)
+xyplot(mean_steps ~ interval | day, data = interval_day_avg, type = "l",
+       layout = c(1, 2), xlab = "Interval", ylab = "Steps",
+       main = "Activity Patterns: Weekday vs Weekend")
+```
+
